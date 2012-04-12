@@ -1,0 +1,685 @@
+<?php
+
+function tableExists($table){
+
+	if(mysql_query("SELECT * FROM ".getConfigVar('db_prefix')."_".$table." LIMIT 1")){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createLogTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_log` (
+		`log_id` int(11) NOT NULL AUTO_INCREMENT,
+		`user_id` int(11) NOT NULL,
+		`date` datetime NOT NULL,
+		`action_type` text NOT NULL,
+		`action_description` longtext NOT NULL,
+		`ip` varchar(15) NOT NULL,
+		`hostname` text NOT NULL,
+		PRIMARY KEY (`log_id`),
+		KEY `user_id` (`user_id`)
+	) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		echo  mysql_error();
+		return false;
+	}
+
+}
+
+function createMessagesTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_messages` (
+		`message_id` int(11) NOT NULL AUTO_INCREMENT,
+		`user_id` int(11) NOT NULL,
+		`body` longtext NOT NULL,
+		`start_date` date NOT NULL,
+		`end_date` date NOT NULL,
+		`priority` int(11) NOT NULL DEFAULT '0',
+		PRIMARY KEY (`message_id`)
+	) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		echo  mysql_error();
+		return false;
+	}
+
+}
+
+function createUsersTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_users` (
+		`user_id` int(11) NOT NULL AUTO_INCREMENT,
+		`username` int(11) NOT NULL,
+		`name` varchar(255) NOT NULL,
+		`password` varchar(255) NOT NULL,
+		`email` text NOT NULL,
+		`user_level` int(11) NOT NULL,
+		`warnings` int(11) NOT NULL DEFAULT '0',
+		`notes` longtext NOT NULL,
+		PRIMARY KEY (`user_id`),
+		UNIQUE KEY `username` (`username`)
+		) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createEquipmentTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_equipment` (
+		`equip_id` int(11) NOT NULL AUTO_INCREMENT,
+		`name` varchar(255) NOT NULL,
+		`type` varchar(255) NOT NULL,
+		`serial` mediumtext NOT NULL,
+		`description` longtext NOT NULL,
+		`max_length` int(11) NOT NULL,
+		`picture` text NOT NULL,
+		`min_user_level` int(11) NOT NULL,
+		`checkoutfrom` int(11) NOT NULL DEFAULT '-1',
+		PRIMARY KEY (`equip_id`)
+	) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createReservationTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_reservations` (
+		`res_id` int(11) NOT NULL AUTO_INCREMENT,
+		`equip_id` int(11) NOT NULL,
+		`user_id` int(11) NOT NULL,
+		`start_date` date NOT NULL,
+		`end_date` date NOT NULL,
+		`check_in_date` date NOT NULL,
+		`length` int(11) NOT NULL,
+		`pickup_time` varchar(10) NOT NULL,
+		`user_comment` longtext NOT NULL,
+		`admin_comment` longtext NOT NULL,
+		`mod_status` int(11) NOT NULL DEFAULT '0',
+		PRIMARY KEY (`res_id`)
+	) ENGINE=MyISAM  DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createWarningsTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_warnings` (
+		`warn_id` int(11) NOT NULL AUTO_INCREMENT,
+		`user_id` int(11) NOT NULL,
+		`reason` longtext NOT NULL,
+		`type` int(11) NOT NULL DEFAULT '1',
+		`time` datetime NOT NULL,
+		PRIMARY KEY (`warn_id`)
+	) ENGINE=MyISAM DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createBlackoutsTable(){
+
+	$result = mysql_query("CREATE TABLE IF NOT EXISTS `".getConfigVar('db_prefix')."_blackouts` (
+		`blackout_id` int(11) NOT NULL AUTO_INCREMENT,
+		`name` varchar(255) NOT NULL,
+		`comments` longtext NOT NULL,
+		`start_date` datetime NOT NULL,
+		`end_date` datetime NOT NULL,
+		`user_level` int(11) NOT NULL DEFAULT '0',
+		PRIMARY KEY (`blackout_id`)
+	) ENGINE=MyISAM DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
+	
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+
+}
+
+function createAdminUser($userid, $name, $password, $email){
+
+	$result = doQuery("INSERT INTO ".getConfigVar('db_prefix')."_users SET username = '".$userid."', name = '".$name."', password = '".encrypt($password)."', email = '".$email."', user_level = '".getConfigVar('admin_rank')."', warnings = '0'");
+
+	if($result){
+		return true;
+	}else{
+		return false;
+	}
+	
+}
+
+$message = "";
+
+$page = "";
+
+if(file_exists("./config.php")){
+
+	require 'functions.php';
+	if(!isset($_POST['page']) || (isset($_POST['page']) && $_POST['page'] == "page1")){
+	
+		$enc = "<font color=\"#FF0000\">Abnormal Key Length!<br>Key should be 16 or 32 characters.</font>";
+		
+		if(strlen(getConfigVar("BLOWFISH_key"))==16){
+		
+			$enc = "<font color=\"#005500\">BLOWFISH 128bit</font>";
+		
+		}
+		else if(strlen(getConfigVar("BLOWFISH_key"))==32){
+		
+			$enc = "<font color=\"#005500\">BLOWFISH 256bit</font>";
+		
+		}
+	
+		$page = "
+		
+			<table class=\"setup\">
+			
+				<tr>
+				
+					<td colspan=4 class=\"header\">Configuration File</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"centeredcell\">Please look over the config file values and make sure they are correct.</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">Webpage Configuration</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Location</td>
+					<td colspan=3 class=\"centeredcell\">".getConfigVar("location")."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Page Header</td>
+					<td class=\"centeredcell\">".getConfigVar("pageheader")."</td>
+					<td class=\"centeredcellbold\">Banner</td>
+					<td class=\"centeredcell\">".getConfigVar("banner")."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">MySQL Configuration</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">MySQL Server</td>
+					<td class=\"centeredcell\">".getConfigVar("mysql_server")."</td>
+					<td class=\"centeredcellbold\">MySQL Database</td>
+					<td class=\"centeredcell\">".getConfigVar("mysql_database")."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">MySQL User</td>
+					<td class=\"centeredcell\">".getConfigVar("mysql_user")."</td>
+					<td class=\"centeredcellbold\">MySQL Password</td>
+					<td class=\"centeredcell\">".getConfigVar("mysql_password")."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Table Prefix</td>
+					<td class=\"centeredcell\">".getConfigVar("db_prefix")."</td>
+					<td colspan=2 class=\"centeredcell\">-</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">Encryption Configuration</td>
+				
+				</tr>
+				
+				<tr>
+					
+					<td class=\"centeredcellbold\">Encryption<br>Algorithm</td>
+					<td colspan=3 class=\"centeredcell\">".$enc."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Blowfish Key</td>
+					<td colspan=3 class=\"centeredcell\">".getConfigVar("BLOWFISH_key")."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<form action=\"./setup.php\" method=\"POST\"><td colspan=4 class=\"centeredcell\">
+						<input type=\"hidden\" name=\"page\" value=\"page2\">
+						<input type=\"submit\" value=\"Continue\">
+					</td></form>
+				
+				</tr>
+			
+			</table>
+		
+		";
+	
+	}// page1
+	else if(isset($_POST['page']) && $_POST['page'] == "page2"){
+		
+		$connecting = "-";
+		$selectdb = "-";
+		$log_table = "-";
+		$users_table = "-";
+		$equipment_table = "-";
+		$reservation_table = "-";
+		$warnings_table = "-";
+		$blackouts_table = "-";
+		
+		/* Connect to the MySQL Server */
+		
+		$link = mysql_connect(getConfigVar('mysql_server'), getConfigVar('mysql_user'), getConfigVar('mysql_password'));
+		
+		if(!$link){
+			$connecting = "<font color=\"#FF0000\">Fail</font>";
+			
+			$message = "<font color=\"#FF0000\">Error: Couldn't connect to the MySQL Server. Please check 'mysql_server', 
+			'mysql_user', 'mysql_password' are correct in the config file.</font><br><br>";
+		}else{
+		
+			$connecting = "<font color=\"#005500\">Success</font>";
+		
+			/* Select the Proper Database */
+		
+			$db_selected = mysql_select_db(getConfigVar('mysql_database'), $link);
+			
+			if(!$db_selected){
+				$selectdb = "<font color=\"#FF0000\">Fail</font>";
+				
+				$message = "<font color=\"#FF0000\">Error: Couldn't select '".getConfigVar('mysql_database')."' as the database.
+				Please check 'mysql_server' in the config file and make sure it exists on the MySQL Server.</font><br><br>";
+			}else{
+			
+				$selectdb = "<font color=\"#005500\">Success</font>";
+			
+				/* Check if log table exists */
+				if(tableExists("log")){
+				
+					$log_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the log table */
+					if(createLogTable()){
+						$log_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$log_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if users table exists */
+				if(tableExists("users")){
+				
+					$users_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the users table */
+					if(createUsersTable()){
+						$users_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$users_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if equipment table exists */
+				if(tableExists("equipment")){
+				
+					$equipment_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the equipment table */
+					if(createEquipmentTable()){
+						$equipment_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$equipment_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if reservation table exists */
+				if(tableExists("reservations")){
+				
+					$reservation_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the reservavtion table */
+					if(createReservationTable()){
+						$reservation_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$reservation_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if warning table exists */
+				if(tableExists("warnings")){
+				
+					$warnings_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the warning table */
+					if(createWarningsTable()){
+						$warnings_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$warnings_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if blackout table exists */
+				if(tableExists("blackouts")){
+				
+					$blackouts_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the blackout table */
+					if(createBlackoutsTable()){
+						$blackouts_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$blackouts_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+				
+				/* Check if blackout table exists */
+				if(tableExists("messages")){
+				
+					$messages_table = "<font color=\"#FF8C00\">Exists</font>";
+				
+				}else{
+					
+					/* Create the blackout table */
+					if(createMessagesTable()){
+						$messages_table = "<font color=\"#005500\">Success</font>";
+					}else{
+						$messages_table = "<font color=\"#FF0000\">Fail</font>";
+					}
+					
+				}
+			
+			} //Check dbselect
+		
+		} //Check link
+
+		$page = "
+			<table class=\"setup\">
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">Database Setup -- Initial Connection</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Connecting to the MySQL Server</td>
+					<td class=\"centeredcellbold\">".$connecting."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Selecthing the Database</td>
+					<td class=\"centeredcellbold\">".$selectdb."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">Database Setup -- Table Creation</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Log Table</td>
+					<td class=\"centeredcellbold\">".$log_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Users Table</td>
+					<td class=\"centeredcellbold\">".$users_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Equipment Table</td>
+					<td class=\"centeredcellbold\">".$equipment_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Reservation Table</td>
+					<td class=\"centeredcellbold\">".$reservation_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Warnings Table</td>
+					<td class=\"centeredcellbold\">".$warnings_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Blackouts Table</td>
+					<td class=\"centeredcellbold\">".$blackouts_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=3 class=\"centeredcellbold\">Creating Messages Table</td>
+					<td class=\"centeredcellbold\">".$messages_table."</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td colspan=4 class=\"header\">User Setup -- Create Admin User</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<form action=\"./setup.php\" method=\"POST\"><td class=\"centeredcellbold\">User ID</td>
+					<td class=\"centeredcell\"><input type=\"text\" name=\"userid\"></td>
+					<td class=\"centeredcellbold\">Password</td>
+					<td class=\"centeredcell\"><input type=\"password\" name=\"password1\"></td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Name</td>
+					<td class=\"centeredcell\"><input type=\"text\" name=\"name\" size=30></td>
+					<td class=\"centeredcellbold\">Confirm</td>
+					<td class=\"centeredcell\"><input type=\"password\" name=\"password2\"></td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Email</td>
+					<td colspan=2 class=\"centeredcell\"><input type=\"text\" name=\"email\" size=39></td>
+					<td class=\"centeredcell\">
+						<input type=\"hidden\" name=\"page\" value=\"page3\">
+						<input type=\"submit\" value=\"Finish\">
+					</td></form>
+				
+				</tr>
+				
+			</table>
+		";
+		
+	}// page2
+	else if(isset($_POST['page']) && $_POST['page'] == "page3"){
+		
+		$done = false;
+		$userid = $_POST['userid'];
+		$password1 = $_POST['password1'];
+		$password2 = $_POST['password2'];
+		$name = $_POST['name'];
+		$email = $_POST['email'];
+		
+		if($password1 == $password2 && $password1 != ""){
+			
+			if($userid != "" && is_numeric($userid) && $name != "" && $email != ""){
+			
+				$done = createAdminUser($userid, $name, $password1, $email);
+				
+				if($done){
+				
+					$page = "<h3><font color=\"#005500\">Success! You are now done with the setup. Please rename or delete 'setup.php'.</font></h3>";
+					
+				}else{
+					
+					$page = "<h3><font color=\"#FF0000\">Error: There was a problem creating the user. Please Try Again.</font></h3>";
+					echo mysql_error();
+				
+				}
+				
+			}else{
+			
+					$page = "<h3><font color=\"#FF0000\">Error: All fields are required. Please Try Again.</font></h3>";
+					
+			}
+		
+		}else{
+		
+			$page = "<h3><font color=\"#FF0000\">Error: Passwords did not match or were left blank. Please Try Again.</font></h3>";
+			
+		}
+		
+		if(!$done){
+		
+			$page = $page . "<table class=\"setup\">
+			
+				<tr>
+				
+					<td colspan=4 class=\"header\">User Setup -- Create Admin User</td>
+				
+				</tr>
+				
+				<tr>
+				
+					<form action=\"./setup.php\" method=\"POST\"><td class=\"centeredcellbold\">User ID</td>
+					<td class=\"centeredcell\"><input type=\"text\" name=\"userid\" value=\"".$userid."\"></td>
+					<td class=\"centeredcellbold\">Password</td>
+					<td class=\"centeredcell\"><input type=\"password\" name=\"password1\"></td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Name</td>
+					<td class=\"centeredcell\"><input type=\"text\" name=\"name\" size=30 value=\"".$name."\"></td>
+					<td class=\"centeredcellbold\">Confirm</td>
+					<td class=\"centeredcell\"><input type=\"password\" name=\"password2\"></td>
+				
+				</tr>
+				
+				<tr>
+				
+					<td class=\"centeredcellbold\">Email</td>
+					<td colspan=2 class=\"centeredcell\"><input type=\"text\" name=\"email\" size=39  value=\"".$email."\"></td>
+					<td class=\"centeredcell\">
+						<input type=\"hidden\" name=\"page\" value=\"page3\">
+						<input type=\"submit\" value=\"Finish\">
+					</td></form>
+				
+				</tr>
+				
+			</table>";
+		
+		}
+	
+	
+	}// page3
+
+}
+else{
+
+	$message = "<font color=\"#FF0000\">Error: Config file doesn't not exists. Please edit 'config.php.new' and then rename it 'config.php'.</font>";
+
+}
+
+?>
+
+<html>
+
+	<head>
+	
+		<LINK REL=StyleSheet HREF="./style.css" TYPE="text/css">
+		<title>Reservation System Setup</title>
+	
+	</head>
+	
+	<body>
+	
+		<center><h3>Reservation System Setup</h3><?php echo $message; ?></center>
+	
+		<?php echo $page; ?>
+		
+	</body>
+
+</html>
